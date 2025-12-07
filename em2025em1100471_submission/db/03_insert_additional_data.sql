@@ -1,3 +1,4 @@
+-- Insert 5 additional records for testing incremental ingestion
 INSERT INTO em2025em1100471_orders (customer_name, restaurant_name, item, amount, order_status) VALUES
 ('Tom Anderson', 'Burger Junction', 'Cheese Burger', 240.00, 'PLACED'),
 ('Anna Taylor', 'Pizza Palace', 'Veggie Supreme', 380.00, 'PLACED'),
