@@ -1,0 +1,300 @@
+================================================================================
+                    FOOD DELIVERY STREAMING PIPELINE
+                         Project Structure
+================================================================================
+
+DSP/
+│
+├── 📁 db/                              # Database Scripts
+│   ├── orders.sql                      # Table creation + 10 initial records
+│   └── insert_test_data.sql            # 5 test records for validation
+│
+├── 📁 producers/                       # CDC Producer
+│   └── orders_cdc_producer.py          # PySpark CDC producer (polls PostgreSQL)
+│
+├── 📁 consumers/                       # Stream Consumer
+│   └── orders_stream_consumer.py       # PySpark consumer (Kafka → Data Lake)
+│
+├── 📁 configs/                         # Configuration
+│   └── orders_stream.yml               # All pipeline parameters
+│
+├── 📁 scripts/                         # Helper Scripts
+│   ├── producer_spark_submit.sh        # Start producer (Linux/Mac)
+│   ├── producer_spark_submit.bat       # Start producer (Windows)
+│   ├── consumer_spark_submit.sh        # Start consumer (Linux/Mac)
+│   ├── consumer_spark_submit.bat       # Start consumer (Windows)
+│   ├── insert_test_data.sh             # Insert test data (Linux/Mac)
+│   ├── insert_test_data.bat            # Insert test data (Windows)
+│   ├── validate_pipeline.sh            # Validate pipeline (Linux/Mac)
+│   └── validate_pipeline.bat           # Validate pipeline (Windows)
+│
+├── 📁 datalake/                        # Data Lake (created at runtime)
+│   └── food/
+│       └── ROLL001/
+│           ├── output/
+│           │   └── orders/
+│           │       └── date=YYYY-MM-DD/
+│           │           └── *.parquet
+│           ├── checkpoints/
+│           │   └── orders/
+│           │       └── (Kafka offsets)
+│           └── lastprocess/
+│               └── orders/
+│                   └── last_timestamp.txt
+│
+├── 📁 inputs/                          # Assignment Materials
+│   ├── assignment.md                   # Original assignment
+│   └── live_class_rough_notes.txt      # Class notes
+│
+├── 📄 docker-compose.yml               # Docker services orchestration
+├── 📄 Dockerfile.spark                 # Custom Spark image (optional)
+├── 📄 requirements.txt                 # Python dependencies
+├── 📄 .gitignore                       # Git ignore rules
+│
+├── 🚀 start.sh                         # Quick start script (Linux/Mac)
+├── 🚀 start.bat                        # Quick start script (Windows)
+│
+└── 📚 Documentation/
+    ├── README.md                       # Main documentation (complete guide)
+    ├── QUICKSTART.md                   # 5-minute quick start guide
+    ├── PROJECT_SUMMARY.md              # High-level project overview
+    ├── ARCHITECTURE.md                 # Technical architecture details
+    ├── TESTING.md                      # Comprehensive testing guide
+    ├── DEPLOYMENT.md                   # Submission & deployment guide
+    └── INDEX.md                        # Documentation navigation index
+
+================================================================================
+                            DOCKER SERVICES
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     Docker Compose Services                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  🐘 PostgreSQL          (food_delivery_postgres)                        │
+│     Port: 5432                                                           │
+│     Database: food_delivery_db                                           │
+│     User: student / Password: student123                                 │
+│                                                                          │
+│  🦁 Zookeeper           (food_delivery_zookeeper)                       │
+│     Port: 2181                                                           │
+│     Manages Kafka cluster                                                │
+│                                                                          │
+│  📨 Kafka               (food_delivery_kafka)                           │
+│     Port: 9092                                                           │
+│     Topic: ROLL001_food_orders_raw                                       │
+│                                                                          │
+│  ⚡ Spark Master        (food_delivery_spark_master)                    │
+│     Port: 7077 (Spark), 8080 (UI)                                       │
+│     Coordinates Spark jobs                                               │
+│                                                                          │
+│  ⚡ Spark Worker        (food_delivery_spark_worker)                    │
+│     Memory: 2GB, Cores: 2                                                │
+│     Executes Spark tasks                                                 │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                            DATA FLOW
+================================================================================
+
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│              │         │              │         │              │
+│  PostgreSQL  │────────▶│     CDC      │────────▶│    Kafka     │
+│              │  JDBC   │   Producer   │  JSON   │    Topic     │
+│  10 initial  │         │  (PySpark)   │         │              │
+│   records    │         │              │         │              │
+│              │         │  Polls every │         │              │
+│              │         │  5 seconds   │         │              │
+└──────────────┘         └──────────────┘         └──────────────┘
+                                                          │
+                                                          │
+                                                          ▼
+                                                   ┌──────────────┐
+                                                   │    Stream    │
+                                                   │   Consumer   │
+                                                   │  (PySpark)   │
+                                                   │              │
+                                                   │  - Parse     │
+                                                   │  - Clean     │
+                                                   │  - Filter    │
+                                                   └──────────────┘
+                                                          │
+                                                          │
+                                                          ▼
+                                                   ┌──────────────┐
+                                                   │  Data Lake   │
+                                                   │  (Parquet)   │
+                                                   │              │
+                                                   │  Partitioned │
+                                                   │   by Date    │
+                                                   └──────────────┘
+
+================================================================================
+                        KEY FILES DESCRIPTION
+================================================================================
+
+CORE APPLICATION FILES:
+----------------------
+orders_cdc_producer.py      - Detects new records in PostgreSQL
+                             - Converts to JSON
+                             - Publishes to Kafka
+                             - Maintains last processed timestamp
+
+orders_stream_consumer.py   - Reads from Kafka topic
+                             - Parses JSON to DataFrame
+                             - Filters null/negative values
+                             - Writes to Parquet (date partitioned)
+                             - Maintains checkpoints
+
+orders_stream.yml           - PostgreSQL connection details
+                             - Kafka broker and topic
+                             - Data Lake paths
+                             - Streaming parameters
+
+orders.sql                  - CREATE TABLE statement
+                             - 10 initial INSERT statements
+                             - Sample data for testing
+
+INFRASTRUCTURE FILES:
+--------------------
+docker-compose.yml          - Defines 5 services
+                             - Network configuration
+                             - Volume mounts
+                             - Environment variables
+
+start.sh / start.bat        - One-command startup
+                             - Waits for services
+                             - Validates database
+                             - Shows next steps
+
+DOCUMENTATION FILES:
+-------------------
+README.md                   - Complete setup guide
+                             - Usage instructions
+                             - Troubleshooting
+                             - 50+ pages
+
+QUICKSTART.md               - Get started in 5 minutes
+                             - Essential commands only
+                             - Quick validation
+
+PROJECT_SUMMARY.md          - High-level overview
+                             - Key features
+                             - Requirements checklist
+
+ARCHITECTURE.md             - System architecture
+                             - Component details
+                             - Data flow diagrams
+
+TESTING.md                  - 15 detailed test cases
+                             - Validation procedures
+                             - Performance benchmarks
+
+DEPLOYMENT.md               - Submission checklist
+                             - Roll number updates
+                             - ZIP creation guide
+
+INDEX.md                    - Documentation navigation
+                             - Quick reference
+                             - Command cheat sheet
+
+================================================================================
+                        QUICK COMMANDS
+================================================================================
+
+START SERVICES:
+  Windows:  start.bat
+  Linux:    ./start.sh
+
+START PRODUCER:
+  Windows:  scripts\producer_spark_submit.bat
+  Linux:    ./scripts/producer_spark_submit.sh
+
+START CONSUMER:
+  Windows:  scripts\consumer_spark_submit.bat
+  Linux:    ./scripts/consumer_spark_submit.sh
+
+INSERT TEST DATA:
+  Windows:  scripts\insert_test_data.bat
+  Linux:    ./scripts/insert_test_data.sh
+
+VALIDATE PIPELINE:
+  Windows:  scripts\validate_pipeline.bat
+  Linux:    ./scripts/validate_pipeline.sh
+
+STOP SERVICES:
+  docker-compose down
+
+VIEW LOGS:
+  docker-compose logs -f [service-name]
+
+ACCESS POSTGRESQL:
+  docker exec -it food_delivery_postgres psql -U student -d food_delivery_db
+
+VIEW KAFKA MESSAGES:
+  docker exec -it food_delivery_kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic ROLL001_food_orders_raw \
+    --from-beginning
+
+ACCESS PYSPARK:
+  docker exec -it food_delivery_spark_master pyspark
+
+SPARK UI:
+  http://localhost:8080
+
+================================================================================
+                        ASSIGNMENT COMPLIANCE
+================================================================================
+
+✅ PostgreSQL table with 7 columns
+✅ 10 initial sample records
+✅ CDC Producer using PySpark
+✅ Polls every 5 seconds
+✅ Kafka topic: <rollnumber>_food_orders_raw
+✅ JSON format matching schema
+✅ Stream Consumer using PySpark
+✅ Data cleaning (null/negative filtering)
+✅ Parquet format
+✅ Date partitioning (YYYY-MM-DD)
+✅ Checkpointing for streaming state
+✅ Last processed timestamp tracking
+✅ Configuration file (orders_stream.yml)
+✅ Incremental ingestion without duplicates
+✅ Proper project structure
+
+================================================================================
+                        FILE STATISTICS
+================================================================================
+
+Total Files:              25+
+Lines of Code:            ~800
+Documentation Pages:      7 (200+ pages total)
+Test Cases:               15
+Docker Services:          5
+Helper Scripts:           8 (4 Windows + 4 Linux/Mac)
+Technologies:             6 (PostgreSQL, Kafka, Spark, Docker, Python, YAML)
+
+================================================================================
+                        GETTING STARTED
+================================================================================
+
+1. Read INDEX.md for documentation navigation
+2. Follow QUICKSTART.md for 5-minute setup
+3. Run TESTING.md test cases for validation
+4. Use DEPLOYMENT.md for submission preparation
+
+For detailed information, see README.md
+
+================================================================================
+                        PROJECT READY FOR:
+================================================================================
+
+✅ Development
+✅ Testing
+✅ Demonstration
+✅ Submission
+✅ Production (with security enhancements)
+
+================================================================================
