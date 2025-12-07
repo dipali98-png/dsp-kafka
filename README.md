@@ -2,6 +2,29 @@
 
 A real-time streaming pipeline for food delivery orders using PostgreSQL, Kafka, and Spark Structured Streaming, all containerized with Docker.
 
+## How This Project is Built
+
+This project implements a complete end-to-end streaming data pipeline using modern big data technologies:
+
+**Technology Stack:**
+- **PostgreSQL**: Source database storing food delivery orders with automatic timestamp tracking
+- **Apache Kafka**: Distributed message broker for real-time data streaming
+- **Apache Spark**: Distributed processing engine for both CDC producer and stream consumer
+- **Docker & Docker Compose**: Containerization for easy deployment and orchestration
+
+**Pipeline Components:**
+1. **CDC Producer** (PySpark): Polls PostgreSQL every 5 seconds to detect new records based on `created_at` timestamp and publishes them to Kafka
+2. **Kafka Topic**: Acts as the streaming buffer between producer and consumer
+3. **Stream Consumer** (Spark Structured Streaming): Reads from Kafka in real-time, applies data quality rules, and writes to Data Lake
+4. **Data Lake**: Stores processed data in Parquet format with date-based partitioning for efficient querying
+
+**Key Features:**
+- Incremental data ingestion without duplicates
+- Data quality checks (null filtering, negative amount validation)
+- Fault tolerance with Spark checkpointing
+- Scalable architecture using distributed systems
+- Configuration-driven design for easy customization
+
 ## Architecture
 
 ```
@@ -36,39 +59,46 @@ DSP/
 └── README.md
 ```
 
-## Quick Start
+## Running the Project with Docker
 
-### 1. Start All Services
+### Step 1: Start Docker Services
+
+Start all required services (PostgreSQL, Kafka, Zookeeper, Spark):
 
 ```bash
 docker-compose up -d
 ```
 
-This will start:
-- PostgreSQL (port 5432)
-- Zookeeper (port 2181)
-- Kafka (port 9092)
-- Spark Master (port 8080, 7077)
-- Spark Worker
+This command starts:
+- **PostgreSQL** (port 5432) - Source database with auto-initialized schema and 10 sample records
+- **Zookeeper** (port 2181) - Kafka coordination service
+- **Kafka** (port 9092) - Message broker
+- **Spark Master** (port 8080, 7077) - Spark cluster manager
+- **Spark Worker** - Spark executor node
 
-### 2. Verify Services are Running
+### Step 2: Verify All Services are Running
+
+Check service status:
 
 ```bash
 docker-compose ps
 ```
 
-All services should show "Up" status.
+All services should show "Up" status. Wait ~30 seconds for Kafka to fully initialize.
 
-### 3. Check Database Initialization
+### Step 3: Verify Database Initialization
 
-The database table and initial 10 records are automatically created when PostgreSQL starts.
+Confirm the database table and initial 10 records were created:
 
-Verify the data:
 ```bash
 docker exec -it food_delivery_postgres psql -U student -d food_delivery_db -c "SELECT COUNT(*) FROM ROLL001_orders;"
 ```
 
-### 4. Start the CDC Producer
+Expected output: `count = 10`
+
+### Step 4: Start the CDC Producer
+
+The producer runs inside the Spark Master container and polls PostgreSQL for new records.
 
 **Windows:**
 ```bash
@@ -85,8 +115,11 @@ The producer will:
 - Poll PostgreSQL every 5 seconds
 - Detect new records based on `created_at` timestamp
 - Publish them to Kafka topic `ROLL001_food_orders_raw`
+- Display logs showing records being published
 
-### 5. Start the Stream Consumer (in a new terminal)
+### Step 5: Start the Stream Consumer
+
+Open a **new terminal** and start the consumer to process streaming data.
 
 **Windows:**
 ```bash
@@ -100,10 +133,27 @@ chmod +x scripts/consumer_spark_submit.sh
 ```
 
 The consumer will:
-- Read from Kafka topic
-- Clean data (remove null order_id, negative amounts)
-- Write to Data Lake in Parquet format
+- Read from Kafka topic in real-time
+- Apply data quality rules (remove null order_id, negative amounts)
+- Write cleaned data to Data Lake in Parquet format
 - Partition by date (YYYY-MM-DD)
+- Display batch processing logs
+
+### Step 6: Verify Pipeline is Working
+
+Check that data is flowing through the pipeline:
+
+**View Kafka messages:**
+```bash
+docker exec -it food_delivery_kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic ROLL001_food_orders_raw --from-beginning
+```
+
+**Check Data Lake files:**
+```bash
+docker exec -it food_delivery_spark_master ls -la /opt/spark-apps/datalake/food/ROLL001/output/orders/
+```
+
+You should see date-partitioned directories with Parquet files.
 
 ## Testing Incremental Ingestion
 

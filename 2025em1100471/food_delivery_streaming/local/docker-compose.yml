@@ -1,0 +1,134 @@
+services:
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: food-delivery-spark
+    container_name: food_delivery_spark_master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./producers:/opt/spark-apps/producers
+      - ./consumers:/opt/spark-apps/consumers
+      - ./configs:/opt/spark-apps/configs
+      - ./datalake:/opt/spark-apps/datalake
+    environment:
+      - SPARK_WORKLOAD=master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    networks:
+      - food_delivery_network
+
+  spark-worker-1:
+    image: food-delivery-spark
+    container_name: food_delivery_spark_worker_1
+    user: root
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKLOAD=worker
+      - SPARK_WORKER_DIR=/tmp/spark-worker
+    volumes:
+      - ./producers:/opt/spark-apps/producers
+      - ./consumers:/opt/spark-apps/consumers
+      - ./configs:/opt/spark-apps/configs
+      - ./datalake:/opt/spark-apps/datalake
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    networks:
+      - food_delivery_network
+
+  spark-worker-2:
+    image: food-delivery-spark
+    container_name: food_delivery_spark_worker_2
+    user: root
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKLOAD=worker
+      - SPARK_WORKER_DIR=/tmp/spark-worker
+    volumes:
+      - ./producers:/opt/spark-apps/producers
+      - ./consumers:/opt/spark-apps/consumers
+      - ./configs:/opt/spark-apps/configs
+      - ./datalake:/opt/spark-apps/datalake
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    networks:
+      - food_delivery_network
+
+  postgres:
+    image: postgres:15
+    container_name: food_delivery_postgres
+    environment:
+      POSTGRES_DB: food_delivery_db
+      POSTGRES_USER: student
+      POSTGRES_PASSWORD: student123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+    networks:
+      - food_delivery_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U student -d food_delivery_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: food_delivery_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - food_delivery_network
+    depends_on:
+      - postgres
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: food_delivery_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - food_delivery_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: food_delivery_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - food_delivery_network
+
+
+
+networks:
+  food_delivery_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
