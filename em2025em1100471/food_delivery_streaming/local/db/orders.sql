@@ -1,5 +1,5 @@
 -- Create orders table
-CREATE TABLE IF NOT EXISTS em2025em1100471_orders (
+CREATE TABLE IF NOT EXISTS 2025em1100471_orders (
     order_id SERIAL PRIMARY KEY,
     customer_name VARCHAR(255) NOT NULL,
     restaurant_name VARCHAR(255) NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS em2025em1100471_orders (
 );
 
 -- Insert 10 initial sample records
-INSERT INTO em2025em1100471_orders (customer_name, restaurant_name, item, amount, order_status) VALUES
+INSERT INTO 2025em1100471_orders (customer_name, restaurant_name, item, amount, order_status) VALUES
 ('John Doe', 'Burger Junction', 'Veg Burger', 220.00, 'PLACED'),
 ('Jane Smith', 'Pizza Palace', 'Margherita Pizza', 350.00, 'PREPARING'),
 ('Mike Johnson', 'Sushi World', 'California Roll', 450.00, 'DELIVERED'),
@@ -23,4 +23,4 @@ INSERT INTO em2025em1100471_orders (customer_name, restaurant_name, item, amount
 ('Maria Garcia', 'Pasta House', 'Penne Arrabiata', 280.00, 'PLACED');
 
 -- Verify insertion
-SELECT COUNT(*) as total_orders FROM em2025em1100471_orders;
+SELECT COUNT(*) as total_orders FROM 2025em1100471_orders;

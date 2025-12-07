@@ -1,0 +1,1 @@
+run setup_database.sh to load initial data, then start producer and consumer.

@@ -7,4 +7,4 @@ docker exec -i food_delivery_postgres psql -U student -d food_delivery_db < db/o
 
 echo "Database setup complete!"
 echo "Verifying records..."
-docker exec -it food_delivery_postgres psql -U student -d food_delivery_db -c "SELECT COUNT(*) FROM em2025em1100471_orders;"
+docker exec -it food_delivery_postgres psql -U student -d food_delivery_db -c "SELECT COUNT(*) FROM 2025em1100471_orders;"
